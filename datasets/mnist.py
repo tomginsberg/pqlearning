@@ -1,5 +1,9 @@
+from typing import Any
+
+import torch.nn
 import torchvision
-from pytorch_lightning import LightningDataModule, seed_everything
+from pytorch_lightning import LightningDataModule, seed_everything, LightningModule, Trainer
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor, Compose, Normalize, RandomResizedCrop, RandomRotation, RandomPerspective
 from utils.image_transforms import RandomlyAppliedTransform

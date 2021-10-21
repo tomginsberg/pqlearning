@@ -3,18 +3,18 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
-from datasets import MnistDataModule
+from datasets.coil import Coil100Module
 from modelling import CNN
 
 pl.seed_everything(42, workers=True)
 
-RUN_NAME = 'mnist_baseline_lenet'
+RUN_NAME = 'coil_baseline_lenet'
 trainer = pl.Trainer(
     auto_select_gpus=True,
     gpus=[2],
-    max_epochs=35,
+    max_epochs=50,
     deterministic=True,
-    callbacks=[EarlyStopping(monitor="val_epoch/accuracy", min_delta=0.00, patience=5, verbose=True, mode='max'),
+    callbacks=[EarlyStopping(monitor="val_epoch/accuracy", min_delta=0.00, patience=10, verbose=True, mode='max'),
                ModelCheckpoint(dirpath=f'checkpoints/{RUN_NAME}',
                                monitor='val_epoch/accuracy',
                                save_top_k=1,
@@ -26,6 +26,6 @@ trainer = pl.Trainer(
     check_val_every_n_epoch=1,
     log_every_n_steps=1
 )
-model = CNN(in_channels=1, out_features=10, arch='lenet')
+model = CNN(in_channels=3, out_features=100, arch='lenet')
 if __name__ == '__main__':
-    trainer.fit(model, datamodule=MnistDataModule())
+    trainer.fit(model, datamodule=Coil100Module(split=1, batch_size=225))
