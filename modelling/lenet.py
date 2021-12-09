@@ -4,6 +4,9 @@ import torch.nn.functional as F
 
 
 class LeNet(nn.Module):
+    """
+    The most basic version of LeNet: https://en.wikipedia.org/wiki/LeNet
+    """
 
     def __init__(self, in_channels=3, out_features=10):
         super(LeNet, self).__init__()

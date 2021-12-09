@@ -1,4 +1,4 @@
-from modelling.pretrained import lenet_trained_on_coil_p1
+from modelling.pretrained import lenet_trained_on_coil_p1, linear_trained_on_coil_p1
 from modelling import CNN
 from datasets.coil import Coil100Module
 from experiments.rejectron.rejectron import RejectronClassifier
@@ -13,14 +13,13 @@ hS = RejectronClassifier(
         out_features=100,
         negative_labels=True,
         training_multiplier=training_multiplier,
-        learning_rate=4 / training_multiplier,
+        learning_rate=1 / training_multiplier,
         logging_prefix=logging_prefix,
         arch='lenet',
-        ckp='checkpoints/coil_baseline_lenet/epoch=35-step=287.ckpt'
         ).cuda(),
-    run_name='rejectron_coil'
+    run_name='rejectron_coil_p1_lenet'
 )
 
 if __name__ == '__main__':
     for _ in range(64):
-        hS.train_next_c(batch_size=150, gpus=[2], max_epochs=400, early_stopping=False)
+        hS.train_next_c(batch_size=225, gpus=[2], max_epochs=50, early_stopping=False, initialization_strategy='base')

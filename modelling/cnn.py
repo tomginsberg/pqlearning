@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Tuple, Dict
 
 import pytorch_lightning as pl
 import torch
@@ -9,7 +9,9 @@ from torch import nn
 from torchmetrics import AverageMeter
 
 from .lenet import LeNet
+from .mlp import ImageMLP, ImageLinear
 from .losses import ce_negative_labels_from_logits
+from utils.generic import update_functional
 
 
 class CNN(pl.LightningModule):
@@ -22,11 +24,19 @@ class CNN(pl.LightningModule):
                  out_features: int = 10,
                  in_channels: int = 3,
                  negative_labels=False,
+                 use_random_vectors=False,
                  training_multiplier=1,
                  learning_rate=1e-3,
+                 weight_decay=5e-4,
                  logging_prefix=None,
                  arch='resnet18',
+                 optim='sgd',
+                 schedule='cosine',
+                 schedule_args=None,
+                 pretrained=False,
                  ckp=None,
+                 n_train=None,
+                 n_test=None,
                  **kwargs: Any):
         """
 
@@ -43,10 +53,10 @@ class CNN(pl.LightningModule):
         super().__init__(**kwargs)
         self.save_hyperparameters()
 
-        # do some minor surgery on the resnet
         arch = arch.lower()  # ignore case
-        if arch == 'resnet18':
-            self.model = torchvision.models.resnet18(pretrained=False)
+        if 'resnet' in arch:
+            # do some minor surgery on the resnet
+            self.model = torchvision.models.resnet.__dict__[arch](pretrained=pretrained)
             if out_features != self.model.fc.out_features:
                 self.model.fc = nn.Linear(self.model.fc.in_features, out_features, bias=True)
             if in_channels != 3:
@@ -58,6 +68,10 @@ class CNN(pl.LightningModule):
                                              )
         elif arch == 'lenet':
             self.model = LeNet(in_channels=in_channels, out_features=out_features)
+        elif arch == 'image-mlp':
+            self.model = ImageMLP(in_channels=in_channels, out_features=out_features)
+        elif arch == 'image-linear':
+            self.model = ImageLinear(in_channels=in_channels, out_features=out_features)
         else:
             raise ValueError(f'arch ({arch}) is invalid')
 
@@ -68,9 +82,11 @@ class CNN(pl.LightningModule):
                 self.load_state_dict(ckp.state_dict())
         # these are parameters useful for rejectron
         self.negative_labels = negative_labels
+        self.use_random_vectors = use_random_vectors
         self.training_multiplier = training_multiplier
 
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
 
         # logging tools
         self.logging_prefix = logging_prefix
@@ -79,6 +95,9 @@ class CNN(pl.LightningModule):
 
         self.p_accuracy = AverageMeter()
         self.q_accuracy = AverageMeter()
+        self.n_p = n_train
+        self.n_q = n_test
+        self.optim, self.schedule, self.schedule_args = optim, schedule, schedule_args
 
     def forward(self, x) -> Tensor:
         return self.model(x)
@@ -97,7 +116,7 @@ class CNN(pl.LightningModule):
             negative_mask = torch.less(y, 0)
             # if no labels in the batch are negative proceed as normal
             if (~negative_mask).all():
-                loss = self.training_multiplier * F.cross_entropy(y_hat, y)
+                loss = F.cross_entropy(y_hat, y)
                 accuracy = (y == predictions).float().mean()
             # if not, flip back the labels but negate the loss term for each negative label
             else:
@@ -108,7 +127,8 @@ class CNN(pl.LightningModule):
                 # loss = torch.mean(
                 #     losses * torch.add(negative_mask * (-1 - self.training_multiplier), self.training_multiplier))
 
-                loss = ce_negative_labels_from_logits(y_hat, y, pos_weight=self.training_multiplier)
+                loss = ce_negative_labels_from_logits(y_hat, y, neg_weight=self.training_multiplier,
+                                                      use_random_vectors=self.use_random_vectors)
                 # when dealing with negative labels the accuracy is the mean of the accuracy from the positive labels
                 # and the error rate on the negative labels
 
@@ -132,8 +152,8 @@ class CNN(pl.LightningModule):
         if self.logging_prefix is not None:
             name = self.logging_prefix + '/' + name
         acc = accuracy.item()
-        self.log(f'{name}/loss', loss.item())
-        self.log(f'{name}/accuracy', acc)
+        # self.log(f'{name}/loss', loss.item())
+        # self.log(f'{name}/accuracy', acc)
         if train:
             self.train_accuracy.update(acc)
             if p_acc == -1:
@@ -152,15 +172,43 @@ class CNN(pl.LightningModule):
         return self.train_val_step(batch, batch_idx, train=False)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        if self.optim == 'adam':
+            optim = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        elif self.optim == 'sgd':
+            optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay,
+                                    momentum=0.9)
+        else:
+            raise ValueError(f'got {self.optim=}, use adam/sgd or update this code')
+        if self.schedule is None:
+            return optim
+
+        update_sch_arg = update_functional(self.schedule_args)
+        if self.schedule == 'cosine':
+            schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=update_sch_arg(200, 'T_max'))
+        elif self.schedule == 'step':
+            schedule = torch.optim.lr_scheduler.StepLR(optim,
+                                                       step_size=update_sch_arg(15, 'step_size'),
+                                                       gamma=update_sch_arg(0.1, 'gamma')
+                                                       )
+        else:
+            raise ValueError(f'got {self.schedule=}, use cosine/step or update this code')
+        return [optim], [schedule]
 
     def training_epoch_end(self, outputs):
         self.log('train_epoch/accuracy', self.train_accuracy.compute())
         self.train_accuracy.reset()
+
+        # negative labels implies that P and Q accuracies exist
         if self.negative_labels:
-            # negative labels implies that P and Q accuracies exist
-            self.log('train_epoch/p_accuracy', self.p_accuracy.compute())
-            self.log('train_epoch/q_accuracy', self.q_accuracy.compute())
+            # percentage of elements in P successfully classified to the label given
+            p_acc = self.p_accuracy.compute()
+            # percentage of elements in Q successfully classified differently from the label given
+            q_acc = self.p_accuracy.compute()
+            if self.n_p is not None and self.n_q is not None:
+                s_metric = p_acc * self.n_p + (q_acc * self.n_q) / (self.n_q + 1)
+                self.log('train_epoch/s_metric', s_metric)
+            self.log('train_epoch/p_accuracy', p_acc)
+            self.log('train_epoch/q_accuracy', q_acc)
             self.q_accuracy.reset(), self.p_accuracy.reset()
 
     def validation_epoch_end(self, outputs):

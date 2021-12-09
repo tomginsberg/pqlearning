@@ -27,7 +27,7 @@ class TestLosses(unittest.TestCase):
         loss_expected = -1 / 3 * (3 * softmax[0].log() @ torch.tensor([0, 1., 0]) +
                                   3 * softmax[1].log() @ torch.tensor([0, 0, 1.]) +
                                   softmax[2].log() @ torch.tensor([0, 1 / 2, 1 / 2]))
-        loss_calculated = ce_negative_labels_from_logits(logits, labels, pos_weight=3)
+        loss_calculated = ce_negative_labels_from_logits(logits, labels, neg_weight=3)
         assert torch.abs(loss_calculated - loss_expected) < 1e-5
 
 

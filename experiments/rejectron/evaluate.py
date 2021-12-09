@@ -1,33 +1,41 @@
-import pytorch_lightning as pl
+import re
 from glob import glob
-import torch
-import os
-from tqdm import tqdm
+
+import pandas as pd
 
 from datasets import MnistDataModule
-from modelling import CNN
-from modelling.pretrained import resnet18_trained_on_mnist
+from experiments.rejectron.mnist import param_sets
 from experiments.rejectron.rejectron import RejectronClassifier
+from modelling import CNN
+from modelling.pretrained import lenet_trained_on_mnist
 
 # os.chdir(f'{os.environ["HOME"]}/pqlearning')
+runs = glob('checkpoints/rejectron_mnist_sh-img_l_nT-*_seed-*')
+nT_seed = [[int(re.match(re.compile('.*nT-(\d+)_seed-(\d).*'), x)[y]) for y in (1, 2)] for x in runs]
+SHIFT = 'img_l'
+model = lenet_trained_on_mnist().cuda(2)
+if __name__ == '__main__':
+    stats = []
+    for run, (n_test, test_seed) in zip(runs, nT_seed):
+        mnist = MnistDataModule(shift_transform_type='natural',
+                                batch_size=512,
+                                test_seed=test_seed,
+                                train_val_seed=42,
+                                test_sample_fraction=n_test / 10000,
+                                fashion_mnist=False,
+                                **param_sets[SHIFT])
 
+        checkpoints = sorted(
+            glob(f'{run}/c*/*ckpt'),
+            # sort by model num in "checkpoints/rejectron_mnist/c_(model num)"
+            key=lambda x: int(x.split('/')[2].split('_')[-1])
+        )
 
-checkpoints = sorted(
-    glob('checkpoints/rejectron_mnist/c*/*ckpt'),
-    # sort by model num in "checkpoints/rejectron_mnist/c_(model num)"
-    key=lambda x: int(x.split('/')[2].split('_')[-1])
-)
-rejectors = [resnet18_trained_on_mnist().cuda()] + \
-            [CNN.load_from_checkpoint(checkpoint_path=checkpoint).cuda() for checkpoint in checkpoints]
+        hS = RejectronClassifier(
+            h=model,
+        )
+        hS.load_C_from_checkpoints(checkpoints, CNN)
+        stats.append(hS.compute_accuracy_and_rejection_on_all(mnist) | {'n_test': n_test, 'test_seed': test_seed})
+        print(stats[-1])
 
-mnist = MnistDataModule(shift_transform_type='natural', test_transform_rate=.5, rotation=20, crop=.3, distortion=.1,
-                        batch_size=256)
-
-y_true = []
-y_pred = []
-for x, y in tqdm(mnist.test_dataloader()):
-    y_true.append(y)
-    y_pred.append(torch.stack([f(x).argmax(1).cpu() for f in rejectors]))
-
-y_true = torch.cat(y_true)
-y_pred = torch.cat(y_pred)
+    pd.DataFrame(stats).to_csv('rejecton_mnist_img_l.csv', index=False)

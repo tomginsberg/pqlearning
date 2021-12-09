@@ -8,7 +8,7 @@ from modelling import CNN
 
 pl.seed_everything(42, workers=True)
 
-RUN_NAME = 'coil_baseline_lenet'
+RUN_NAME = 'coil_baseline_linear'
 trainer = pl.Trainer(
     auto_select_gpus=True,
     gpus=[2],
@@ -26,6 +26,6 @@ trainer = pl.Trainer(
     check_val_every_n_epoch=1,
     log_every_n_steps=1
 )
-model = CNN(in_channels=3, out_features=100, arch='lenet')
+model = CNN(in_channels=3, out_features=100, arch='image-linear')
 if __name__ == '__main__':
     trainer.fit(model, datamodule=Coil100Module(split=1, batch_size=225))
