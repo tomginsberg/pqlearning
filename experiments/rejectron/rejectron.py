@@ -233,7 +233,7 @@ class RejectronClassifier:
         print(f'Computing Acc/Rej stats for h|S_{len(self.C) + 1}')
 
         # a hack to turn off data augmentation for certain datasets
-        # this should be fixed by making a UpdateableDatamodule type
+        # this should be fixed by making a UpdatableDatamodule type
         if hasattr(self.pq, 'update_test_transform'):
             self.pq.update_test_transform(train=False)
 
