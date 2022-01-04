@@ -22,3 +22,11 @@ class no_train(object):
 
     def __exit__(self):
         self.module.train(True)
+
+
+def vprint(verbose=True):
+    def f(x):
+        if verbose:
+            print(x)
+
+    return f

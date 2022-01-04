@@ -2,7 +2,18 @@ import torch
 import torch.nn.functional as F
 
 
-def ce_negative_labels_from_logits(logits, labels, neg_weight=1, use_random_vectors=False):
+def ce_negative_labels_from_logits(logits: torch.Tensor, labels: torch.Tensor, alpha=1,
+                                   use_random_vectors=False) -> torch.Tensor:
+    """
+    Args:
+        logits: (batch_size, num_classes) tensor of logits
+        labels: (batch_size,) tensor of labels
+        alpha: (float) weight of negative labels
+        use_random_vectors: (bool) whether to use random vectors for negative labels
+
+    Returns: loss
+
+    """
     if (labels >= 0).all():
         return F.cross_entropy(logits, labels)
 
@@ -22,8 +33,8 @@ def ce_negative_labels_from_logits(logits, labels, neg_weight=1, use_random_vect
     if torch.isinf(ce_neg).any():
         raise RuntimeError('Infinite loss encountered for ce-neg')
     if (labels < 0).all():
-        return ce_neg.mean() / neg_weight
+        return ce_neg.mean() * alpha
 
     pos_logits, pos_labels = logits[labels >= 0], labels[labels >= 0]
     ce_pos = F.cross_entropy(pos_logits, pos_labels, reduction='none')
-    return torch.cat([ce_neg / neg_weight, ce_pos]).mean()
+    return torch.cat([ce_neg * alpha, ce_pos]).mean()

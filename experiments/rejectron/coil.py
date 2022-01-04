@@ -1,5 +1,5 @@
 from modelling.pretrained import lenet_trained_on_coil_p1, linear_trained_on_coil_p1
-from modelling import CNN
+from modelling import CNNModule
 from datasets.coil import Coil100Module
 from experiments.rejectron.rejectron import RejectronClassifier
 
@@ -9,14 +9,14 @@ hS = RejectronClassifier(
     h=model,
     pq=coil,
     create_model=lambda training_multiplier, logging_prefix:
-    CNN(in_channels=3,
-        out_features=100,
-        negative_labels=True,
-        training_multiplier=training_multiplier,
-        learning_rate=1 / training_multiplier,
-        logging_prefix=logging_prefix,
-        arch='lenet',
-        ).cuda(),
+    CNNModule(in_channels=3,
+              out_features=100,
+              negative_labels=True,
+              training_multiplier=training_multiplier,
+              learning_rate=1 / training_multiplier,
+              logging_prefix=logging_prefix,
+              arch='lenet',
+              ).cuda(),
     run_name='rejectron_coil_p1_lenet'
 )
 

@@ -6,7 +6,7 @@ import pandas as pd
 from datasets import MnistDataModule
 from experiments.rejectron.mnist import param_sets
 from experiments.rejectron.rejectron import RejectronClassifier
-from modelling import CNN
+from modelling import CNNModule
 from modelling.pretrained import lenet_trained_on_mnist
 
 # os.chdir(f'{os.environ["HOME"]}/pqlearning')
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         hS = RejectronClassifier(
             h=model,
         )
-        hS.load_C_from_checkpoints(checkpoints, CNN)
+        hS.load_C_from_checkpoints(checkpoints, CNNModule)
         stats.append(hS.compute_accuracy_and_rejection_on_all(mnist) | {'n_test': n_test, 'test_seed': test_seed})
         print(stats[-1])
 

@@ -4,7 +4,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import WandbLogger
 
 from datasets import MnistDataModule
-from modelling import CNN
+from modelling import CNNModule
 
 pl.seed_everything(42, workers=True)
 
@@ -26,6 +26,6 @@ trainer = pl.Trainer(
     check_val_every_n_epoch=1,
     log_every_n_steps=1,
 )
-model = CNN(in_channels=1, out_features=10, arch='resnet18')
+model = CNNModule(in_channels=1, out_features=10, arch='resnet18')
 if __name__ == '__main__':
     trainer.fit(model, datamodule=MnistDataModule(fashion_mnist=False))

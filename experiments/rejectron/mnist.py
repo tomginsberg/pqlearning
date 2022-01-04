@@ -1,6 +1,6 @@
 from datasets import MnistDataModule
 from experiments.rejectron.rejectron import RejectronClassifier, NoDataError, CreateRejectronModel
-from modelling import CNN
+from modelling import CNNModule
 from modelling.pretrained import lenet_trained_on_mnist
 import warnings
 import pandas as pd
@@ -21,7 +21,7 @@ patience = 3
 
 class RejectronMNISTCNN(CreateRejectronModel):
     def create(self, training_multiplier: float, logging_prefix: str, n_train: int, n_test: int):
-        return CNN(
+        return CNNModule(
             in_channels=1, negative_labels=True,
             training_multiplier=training_multiplier,
             n_train=n_train,

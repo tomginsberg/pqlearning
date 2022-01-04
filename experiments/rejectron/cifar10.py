@@ -1,6 +1,6 @@
 from datasets.cifar10 import CIFAR10DataModule
 from experiments.rejectron.rejectron import RejectronClassifier, NoDataError, CreateRejectronModel
-from modelling import CNN
+from modelling import CNNModule
 from modelling.pretrained import resnet18_trained_on_cifar10
 import warnings
 import pandas as pd
@@ -14,7 +14,7 @@ SHIFT = False
 
 class RejectronCIFARCNN(CreateRejectronModel):
     def create(self, training_multiplier: float, logging_prefix: str, n_train: int, n_test: int):
-        return CNN(
+        return CNNModule(
             in_channels=3, negative_labels=True,
             training_multiplier=training_multiplier,
             n_train=n_train,
