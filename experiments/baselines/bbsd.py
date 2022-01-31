@@ -1,19 +1,39 @@
-from torch.utils.data import DataLoader
-import torch
-import warnings
-from tqdm import tqdm
-from scipy.stats import ks_2samp
-from modelling.pretrained import lenet_trained_on_mnist
-from datasets import MnistDataModule
-import pandas as pd
-import numpy as np
 import json
+import warnings
+
+import numpy as np
+import pandas as pd
+import torch
+from scipy.stats import ks_2samp
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from datasets import MnistDataModule
+from modelling.pretrained import lenet_trained_on_mnist
 
 
-def generate_logits(model: torch.nn.Module, dataloader: DataLoader):
+def generate_logits(model: torch.nn.Module, dataloader: DataLoader, compute_acc=False):
     device = model.device
+    model.eval()
     with torch.no_grad():
-        return torch.cat([model(x.to(device)) for x, _ in dataloader], dim=0).cpu()
+        if compute_acc:
+            logits = []
+            labels = []
+            preds = []
+            for x, y in tqdm(dataloader):
+                out = model(x.to(device))
+                logits.append(out)
+                preds.append(out.argmax(dim=1))
+                labels.append(y)
+            logits = torch.cat(logits, dim=0).cpu()
+            labels = torch.cat(labels, dim=0).cpu()
+            preds = torch.cat(preds, dim=0).cpu()
+            # compute accuracy
+            acc = (preds == labels).float().mean()
+            return logits, acc
+
+        else:
+            return torch.cat([model(x.to(device)) for x, _ in tqdm(dataloader)], dim=0).cpu()
 
 
 param_sets = {
@@ -112,8 +132,4 @@ def no_shift_test(p='logits_mnist_none.json', val_sizes=(10, 10000)):
             res[k] = v
 
     with open('bbsd_mnist_no_shift.json', 'w') as f:
-        json.dump({f'{k}': v for k,v in res.items()}, f)
-
-
-if __name__ == '__main__':
-    run_all_ks_tests()
+        json.dump({f'{k}': v for k, v in res.items()}, f)

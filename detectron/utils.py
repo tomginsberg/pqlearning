@@ -114,34 +114,6 @@ def train_rejectors(pq: PQModule, h: pl.LightningModule, trainer: Callable[[int]
     return df
 
 
-# def train_rejector(c_step: RejectronStep, pq: PQModule, trainer: pl.Trainer, i: int):
-#     """
-#     Train a single rejector.
-#     Args:
-#         c_step: RejectronStep object
-#         pq: datasets
-#         trainer: pytorch lightning trainer
-#         i: iteration number
-#
-#     Returns: trained rejector, whether training is complete
-#
-#     """
-#     try:
-#         trainer.fit(model=c_step, datamodule=pq)
-#         wandb.finish()
-#         complete = True
-#     except KeyboardInterrupt:
-#         print('Keyboard interrupt')
-#         raise KeyboardInterrupt()
-#     except Exception:
-#         # print stack trace
-#         traceback.print_exc()
-#         print(f'Failed on step {i}')
-#         complete = False
-#
-#     return c_step, complete
-#
-#
 def format_results(results: List[Dict[str, float]], df: pd.DataFrame, i: int, pq: PQModule, size_of_q: int):
     """
     Get the results of the current rejector and add them to the dataframe.

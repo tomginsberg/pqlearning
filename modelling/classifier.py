@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torchmetrics import Accuracy
 from abc import abstractmethod
+from torch.cuda.amp import autocast
 
 
 class Classifier(pl.LightningModule):
@@ -27,20 +28,22 @@ class Classifier(pl.LightningModule):
         raise NotImplementedError
 
     def training_step(self, batch, *args, **kwargs) -> torch.Tensor:
-        x, y = batch
-        y_hat = self(x)
-        self.train_acc(y_hat, y)
-        loss = self.loss(y_hat, y)
-        return loss
+        with autocast():
+            x, y = batch
+            y_hat = self(x)
+            self.train_acc(y_hat, y)
+            loss = self.loss(y_hat, y)
+            return loss
 
     def validation_step(self, batch, *args, **kwargs) -> torch.Tensor:
-        x, y = batch
-        y_hat = self(x)
-        if self.check_negative_labels:
-            y[y < 0] = -y[y < 0] - 1
-        self.val_acc(y_hat, y)
-        loss = self.loss(y_hat, y)
-        return loss
+        with autocast():
+            x, y = batch
+            y_hat = self(x)
+            if self.check_negative_labels:
+                y[y < 0] = -y[y < 0] - 1
+            self.val_acc(y_hat, y)
+            loss = self.loss(y_hat, y)
+            return loss
 
     def validation_epoch_end(self, outputs: torch.Tensor):
         avg_loss = torch.tensor(outputs).mean()

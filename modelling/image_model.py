@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torchvision
 from torch import Tensor
 from torch import nn
-from torchmetrics import AverageMeter
+from torchmetrics import MeanMetric as AverageMeter
 
 from .lenet import LeNet
 from .mlp import ImageMLP, ImageLinear
@@ -17,7 +17,8 @@ from modelling.classifier import Classifier
 
 class ImageModel(Classifier):
     def __init__(self, out_features: int = 10, in_channels: int = 3, arch='resnet18', pretrained=False, lr=0.01,
-                 optim='Adam', gamma=.2, step_size=20, scheduler=None, **kwargs):
+                 optim='Adam', gamma=.2, step_size=20, scheduler=None, check_negative_labels=True, channels_last=False,
+                 **kwargs):
         """
 
         Args:
@@ -27,7 +28,8 @@ class ImageModel(Classifier):
             pretrained:   Whether to use pretrained weights
             **kwargs:
         """
-        super().__init__(lr=lr, optim=optim, gamma=gamma, step_size=step_size, scheduler=scheduler, **kwargs)
+        super().__init__(lr=lr, optim=optim, gamma=gamma, step_size=step_size, scheduler=scheduler,
+                         check_negative_labels=check_negative_labels, **kwargs)
         self.save_hyperparameters()
 
         arch = arch.lower()
@@ -52,6 +54,9 @@ class ImageModel(Classifier):
             self.model = ImageMLP(in_channels=in_channels, out_features=out_features)
         elif arch == 'imagelinear':
             self.model = ImageLinear(in_channels=in_channels, out_features=out_features)
+
+        if channels_last:
+            self.model = self.model.to(memory_format=torch.channels_last)
 
     @staticmethod
     def supported_architectures() -> Set[str]:

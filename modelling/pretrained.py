@@ -1,5 +1,6 @@
 from modelling.image_model import ImageModel, CNNModule
 from modelling.mlp import MLP
+from glob import glob
 
 CHECKPOINT_DIR = '/voyager/projects/tomginsberg/pqlearning/checkpoints'
 
@@ -8,8 +9,13 @@ def resnet18_trained_on_mnist():
     return CNNModule.load_from_checkpoint(CHECKPOINT_DIR + '/mnist_baseline/epoch=6-step=3282.ckpt')
 def resnet18_trained_on_cifar10():
     return ImageModel.load_from_checkpoint(CHECKPOINT_DIR + '/cifar/cifar10_resnet18/epoch=197-step=77417.ckpt')
+def resnet18_collection_trained_on_cifar10():
+    checkpoints = glob(CHECKPOINT_DIR + '/cifar/baselines/*/*.ckpt')
+    return [ImageModel.load_from_checkpoint(c) for c in checkpoints]
+
 def resnet18_trained_on_fashion_mnist():
     return CNNModule.load_from_checkpoint(CHECKPOINT_DIR + 'fashion_mnist_baseline_resnet/epoch=11-step=5627.ckpt')
+
 def lenet_trained_on_mnist():
     return CNNModule.load_from_checkpoint(CHECKPOINT_DIR + '/mnist_baseline_lenet/epoch=24-step=9774.ckpt')
 def lenet_trained_on_fashion_mnist():

@@ -27,7 +27,7 @@ if __name__ == '__main__':
                 )
                 pq = PQModule(
                     p=dm.train_dataset, p_prime=dm.val_dataset, q=dm.test_dataset,
-                    batch_size=256, num_workers=96//2, drop_last=False
+                    batch_size=256, num_workers=96 // 2, drop_last=False
                 )
 
                 # get a default rejectron trainer

@@ -17,7 +17,7 @@ TransformType = Union[
 
 class CIFAR10C(Dataset):
     def __init__(self, root='/voyager/datasets/', shift_types=('frost', 'fog', 'snow'), seed=42, num_images=10000,
-                 severity_range=(3, 5), negative_label=True):
+                 severity_range=(3, 5), negative_labels=True):
         self.num_images = num_images
         _images = [np.load(join(root, 'CIFAR-10-C', x + '.npy')) for x in shift_types]
         _labels = np.load(join(root, 'CIFAR-10-C', 'labels.npy')).astype(int)
@@ -39,7 +39,7 @@ class CIFAR10C(Dataset):
         ])
         self.images = images
         self.labels = labels
-        self.nl = negative_label
+        self.nl = negative_labels
 
     def __len__(self):
         return self.num_images
@@ -78,7 +78,9 @@ class CIFAR10DataModule(LightningDataModule):
             test_samples: Union[int, str] = 10000,
             shift_types: Union[str, Collection[str]] = ('frost', 'fog', 'snow'),
             shift_severity_range=(3, 5),
-            unshifted_test=False
+            unshifted_test=False,
+            num_workers:int = 96//2,
+            negative_labels=True,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -109,7 +111,7 @@ class CIFAR10DataModule(LightningDataModule):
                 assert x in self.shift_options, f'shift type {x} is not in available shift types {self.shift_options}'
         if not unshifted_test:
             self.test_dataset = CIFAR10C(root=root, shift_types=shift_types, severity_range=shift_severity_range,
-                                         negative_label=True, seed=test_seed, num_images=test_samples)
+                                         negative_labels=negative_labels, seed=test_seed, num_images=test_samples)
         else:
             self.test_dataset = torchvision.datasets.CIFAR10(root, train=False, transform=self.transform_train)
             if self.test_samples < 10000:
@@ -117,14 +119,16 @@ class CIFAR10DataModule(LightningDataModule):
                     self.test_dataset, [self.test_samples, 10000 - self.test_samples],
                     torch.Generator().manual_seed(self.test_seed)
                 )[0]
-            self.test_dataset = FlippedLabels(self.test_dataset)
+            if negative_labels:
+                self.test_dataset = FlippedLabels(self.test_dataset)
+        self.num_workers=num_workers
 
     def __dataloader(self, split='train') -> DataLoader:
         return DataLoader(
             self.train_dataset if split == 'train' else self.val_dataset,
             batch_size=self.batch_size,
             # pin_memory=True,
-            num_workers=64,
+            num_workers=self.num_workers,
             shuffle=True if split == 'train' else False,
             persistent_workers=True
         )
